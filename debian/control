@@ -1,0 +1,9 @@
+Package: ahll
+Version: 1.0-1
+Section: devel
+Priority: optional
+Architecture: all
+Depends: python3
+Maintainer: andy64lol andy64lolxd@gmail.com
+Description: Andy's Happy Little Language interpreter
+ A whimsical programming language that makes coding fun and happy!

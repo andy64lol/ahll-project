@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import subprocess
+import re
+
+class AHLLInterpreter:
+    def __init__(self):
+        self.variables = {}
+        self.lists = {}
+        self.functions = {}
+        self.answer = None
+
+    def parse_expression(self, expr):
+        # Handle expressions in () or []
+        expr = expr.strip()
+        if expr.startswith('(') and expr.endswith(')'):
+            expr = expr[1:-1]
+        elif expr.startswith('[') and expr.endswith(']'):
+            expr = expr[1:-1]
+
+        # Replace variables
+        for var in re.findall(r'\b\w+\b', expr):
+            if var in self.variables:
+                expr = expr.replace(var, repr(self.variables[var]))
+            elif var == 'answer':
+                expr = expr.replace(var, repr(self.answer))
+
+        # Evaluate
+        try:
+            return eval(expr)
+        except:
+            return expr
+
+    def parse_condition(self, cond):
+        # Parse conditions like <("var")_is_("value")>
+        cond = cond.strip('<>')
+        if '_is_' in cond:
+            parts = cond.split('_is_', 1)
+            var_raw = parts[0]
+            val_raw = parts[1] if len(parts) > 1 else ''
+            # Extract variable name by removing parentheses and quotes
+            var = var_raw.strip().strip('(').strip('"').strip("'").strip(')').strip('"')
+            # Extract value by removing parentheses and quotes
+            val = val_raw.strip().strip('(').strip('"').strip("'").strip(')').strip('"')
+            return self.variables.get(var) == val
+        elif 'the_following_thing_is_not_true_lol_' in cond:
+            sub_cond = cond.replace('the_following_thing_is_not_true_lol_', '')
+            return not self.parse_condition('<' + sub_cond + '>')
+        return False
+
+    def execute_line(self, line):
+        # Parse commands
+        if line.startswith('write_this('):
+            content = line[11:-1]
+            parsed = self.parse_expression(content)
+            print(parsed)
+        elif line.startswith('ask_this('):
+            prompt = line[9:-1].strip('"')
+            self.answer = input(prompt)
+        elif line.startswith('create_new_classroom_named_('):
+            name = line[29:-1].strip('"')
+            self.lists[name] = []
+        elif line.startswith('add_new_student_with_name_of_('):
+            parts = line.split('_to_')
+            var = parts[0][31:-1].strip('"')
+            if parts[1].startswith('classroom_('):
+                # Extract list name from classroom_("name")
+                list_name_match = re.search(r'classroom_\("([^"]+)"\)', parts[1])
+                if list_name_match:
+                    list_name = list_name_match.group(1)
+                else:
+                    list_name = parts[1][10:-1].strip('"')
+                self.lists[list_name].append(var)
+            elif '_to_happy_children_prison_LOL' in parts[1]:
+                self.variables[var] = None
+        elif line.startswith('teach_('):
+            parts = line.split('_a_bit_of_(')
+            var = parts[0][7:-1].strip('"')
+            value_part = parts[1].split(')_from_')[0]
+            value = self.parse_expression(value_part)
+            source = parts[1].split(')_from_')[1]
+            if source.startswith('classroom('):
+                list_name = source[11:-1].strip('"')
+                if list_name in self.lists and var in self.lists[list_name]:
+                    self.variables[var] = value
+            elif source.startswith('happy_children_prison'):
+                if 'happy_children_prison' in self.lists and var in self.lists['happy_children_prison']:
+                    self.variables[var] = value
+        elif line.startswith('nuke_list_('):
+            name = line[11:-1].strip('"')
+            if name in self.lists:
+                del self.lists[name]
+        elif line.startswith('nuke_notes_('):
+            parts = line.split(')_from_classroom_(')
+            var = parts[0][12:-1].strip('"')
+            list_name = parts[1].strip('")')
+            if list_name in self.lists and var in self.lists[list_name]:
+                self.lists[list_name].remove(var)
+        elif line.startswith('file_document_('):
+            parts = line.split('_as_(')
+            file_path = parts[0][15:-1].strip('"')
+            list_name = parts[1].strip('")').split(',')[0].strip('"')
+            with open(file_path, 'w') as f:
+                json.dump(self.lists.get(list_name, []), f)
+        elif line.startswith('burn_papers_('):
+            file_path = line[13:-1].strip('"')
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        elif line.startswith('use_cheating_('):
+            cmd = line[14:-1].strip('"')
+            subprocess.run(cmd, shell=True)
+
+    def parse(self, filename):
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+        self.ast = self.parse_lines(lines, 0)
+
+    def parse_lines(self, lines, start_indent):
+        statements = []
+        i = 0
+        while i < len(lines):
+            line = lines[i].rstrip()
+            if not line.strip():
+                i += 1
+                continue
+            indent = len(line) - len(line.lstrip())
+            line = line.lstrip()
+            if indent < start_indent:
+                break
+            elif indent == start_indent:
+                stmt = {'type': 'statement', 'line': line, 'children': []}
+                statements.append(stmt)
+                i += 1
+                # Check for indented children
+                if i < len(lines):
+                    next_indent = len(lines[i]) - len(lines[i].lstrip())
+                    if next_indent > start_indent:
+                        children = self.parse_lines(lines[i:], next_indent)
+                        stmt['children'] = children
+                        i += len(children)
+            else:
+                i += 1  # Skip unexpected
+        return statements
+
+    def execute_ast(self, ast):
+        for stmt in ast:
+            self.execute_statement(stmt)
+
+    def execute_statement(self, stmt):
+        line = stmt['line']
+        if stmt['children']:
+            # Block statement
+            if line.startswith('If_'):
+                cond_part = line[3:].split('_then_do:')[0]
+                cond = self.parse_condition(cond_part)
+                if cond:
+                    self.execute_ast(stmt['children'])
+            elif line.startswith('but if_'):
+                cond_part = line[7:].split('_do:')[0]
+                cond = self.parse_condition(cond_part)
+                if cond:
+                    self.execute_ast(stmt['children'])
+            elif line.startswith('create_new_concept_('):
+                name = line[20:-1].strip('"')
+                self.functions[name] = stmt['children']
+            elif line.startswith('define_concept_('):
+                name = line[15:].split(')_here:')[0].strip('"')
+                self.functions[name] = stmt['children']
+            else:
+                self.execute_ast(stmt['children'])
+        else:
+            self.execute_line(line)
+
+    def run(self, filename):
+        self.parse(filename)
+        self.execute_ast(self.ast)
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("Usage: ahll file.ahll")
+        sys.exit(1)
+    interpreter = AHLLInterpreter()
+    interpreter.run(sys.argv[1])

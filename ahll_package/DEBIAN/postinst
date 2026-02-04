@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+mandb 2>/dev/null || true
+echo "🌻 AHLL installed successfully!"
+echo "Try: bananacat --help"
