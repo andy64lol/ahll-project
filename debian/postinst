@@ -1,6 +1,0 @@
-#!/bin/bash
-# Post-installation script
-set -e
-# Update man database
-mandb 2>/dev/null || true
-echo "AHLL installed! Usage: bananacat file.ahll"
