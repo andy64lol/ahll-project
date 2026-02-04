@@ -1,0 +1,36 @@
+{
+  "name": "andy-s-happy-little-language---ahll--support",
+  "displayName": "Andy's happy little language (.ahll) support",
+  "description": "This is a VScode extension for .ahll, for more visit https://github.com/andy64lol/ahll-project/tree/main",
+  "version": "0.0.1",
+  "repository": "https://github.com/andy64lol/ahll-project",
+  "engines": {
+    "vscode": "^1.108.1"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ahll",
+        "aliases": [
+          "Andy's Happy Little Language (.ahll)",
+          "ahll"
+        ],
+        "extensions": [
+          ".ahll"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ahll",
+        "scopeName": "source.ahll",
+        "path": "./syntaxes/ahll.tmLanguage.json"
+      }
+    ]
+  }
+}
+
