@@ -11,11 +11,14 @@
 5. [Math Operations](#math-operations)
 6. [Input and Output](#input-and-output)
 7. [Conditionals](#conditionals)
-8. [Functions (Concepts)](#functions-concepts)
-9. [File I/O](#file-io)
-10. [Shell Integration](#shell-integration)
-11. [Advanced Features](#advanced-features)
-12. [Complete Examples](#complete-examples)
+8. [Loops](#loops)
+9. [Functions (Concepts)](#functions-concepts)
+10. [Time and Delays](#time-and-delays)
+11. [Program Control](#program-control)
+12. [File I/O](#file-io)
+13. [Shell Integration](#shell-integration)
+14. [Advanced Features](#advanced-features)
+15. [Complete Examples](#complete-examples)
 
 ---
 
@@ -29,6 +32,9 @@ AHLL (Andy's Happy Little Language) is a fun, whimsical programming language wit
 - Variables, lists, math operations
 - Input/output capabilities
 - Conditionals and functions
+- Loops with `do_this_(N)_times:`
+- Time delays with `STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(N)_SECONDS`
+- Program control with `nuke_this_sh*t`
 - File I/O operations
 - Shell command integration
 
@@ -425,6 +431,75 @@ If_<("x")_is_(5)>_then_do:
 
 ---
 
+## Loops
+
+AHLL supports simple loops to repeat a block of code multiple times.
+
+### Basic Loops
+
+```ahll
+// Execute a block 3 times
+do_this_(3)_times:
+    write_this("Hello!")
+```
+
+### Loop Example
+
+```ahll
+write_this("=== Loops Demo ===")
+
+do_this_(5)_times:
+    write_this("Printing for the 5th time!")
+```
+
+**Output:**
+```
+=== Loops Demo ===
+Printing for the 5th time!
+Printing for the 5th time!
+Printing for the 5th time!
+Printing for the 5th time!
+Printing for the 5th time!
+```
+
+### Loops with Variables
+
+```ahll
+create_new_classroom_named_("counters")
+add_new_student_with_name_of_("i")_to_classroom_("counters")
+teach_("i")_a_bit_of_(1)_from_classroom("counters")
+
+do_this_(3)_times:
+    write_this([i])
+    teach_("i")_a_bit_of_([i + 1])_from_classroom("counters")
+```
+
+### Nested Loops
+
+```ahll
+write_this("=== Nested Loops Demo ===")
+
+do_this_(2)_times:
+    write_this("Outer loop iteration")
+    do_this_(3)_times:
+        write_this("  Inner loop iteration")
+```
+
+**Output:**
+```
+=== Nested Loops Demo ===
+Outer loop iteration
+  Inner loop iteration
+  Inner loop iteration
+  Inner loop iteration
+Outer loop iteration
+  Inner loop iteration
+  Inner loop iteration
+  Inner loop iteration
+```
+
+---
+
 ## Functions (Concepts)
 
 Functions in AHLL are called "concepts" and are defined using indented blocks.
@@ -486,6 +561,90 @@ define_concept_("complex_task")_here:
     write_this("You entered: ")
     write_this([answer])
     write_this("Task complete!")
+```
+
+---
+
+## Time and Delays
+
+AHLL supports adding delays to your programs using the `STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_` command.
+
+### Basic Delay
+
+```ahll
+// Wait for 2 seconds
+STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(2)_SECONDS
+```
+
+### Delay Example
+
+```ahll
+write_this("Starting...")
+STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(1)_SECONDS
+write_this("1 second passed...")
+STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(2)_SECONDS
+write_this("2 more seconds passed!")
+STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(3)_SECONDS
+write_this("Done!")
+```
+
+**Output:**
+```
+Starting...
+1 second passed...
+2 more seconds passed...
+Done!
+```
+
+### Delay in Loops
+
+```ahll
+write_this("=== Countdown ===")
+
+do_this_(5)_times:
+    write_this("Tick...")
+    STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(1)_SECONDS
+
+write_this("Time's up!")
+```
+
+---
+
+## Program Control
+
+AHLL provides commands to control program execution.
+
+### Stop Program
+
+Use `nuke_this_sh*t` to immediately terminate the program:
+
+```ahll
+write_this("This will print")
+nuke_this_sh*t
+write_this("This won't print")
+```
+
+**Output:**
+```
+This will print
+```
+
+### Exit with Message
+
+```ahll
+write_this("Checking conditions...")
+create_new_classroom_named_("status")
+add_new_student_with_name_of_("ready")_to_classroom_("status")
+teach_("ready")_a_bit_of_("false")_from_classroom("status")
+
+If_<("ready")_is_("true")>_then_do:
+    write_this("Proceeding with program...")
+    
+but if_<the_following_thing_is_not_true_lol_<("ready")_is_("true")>>_do:
+    write_this("Not ready, stopping...")
+    nuke_this_sh*t
+
+write_this("This won't be reached if not ready")
 ```
 
 ---
@@ -816,10 +975,127 @@ Goodbye from AHLL!
 | Math | `[expression]` | `[1 + 2 * 3]` |
 | If | `If_<()_is_()>>_then_do:` | `If_<("x")_is_(5)>_then_do:` |
 | Not | `the_following_thing_is_not_true_lol_` | `the_following_thing_is_not_true_lol_<(...)>` |
+| Loop | `do_this_(N)_times:` | `do_this_(5)_times:` |
+| Wait | `STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(N)_SECONDS` | `STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(2)_SECONDS` |
+| Stop | `nuke_this_sh*t` | `nuke_this_sh*t` |
 | Function | `create_new_concept_` + `define_concept_` | See functions section |
 | File Write | `file_document_("path")_as_("list")` | `file_document_("a.txt")_as_("data")` |
 | File Delete | `burn_papers_("path")` | `burn_papers_("a.txt")` |
 | Shell | `use_cheating_("command")` | `use_cheating_("ls")` |
+| Math Extensions | `pi_(N)` | `pi_(2)` → `6.283...` |
+| Absolute Value | `absolute_value_of_(N)` | `absolute_value_of_(-5)` → `5` |
+| Character Gen | `document_header_with_length_(N)_and_(char)_as_character` | `document_header_with_length_(5)_and_("*")_as_character` |
+| Clear Screen | `shoot_this_thing` | Clears terminal |
+
+---
+
+## Math Extensions
+
+AHLL provides additional math functions for more advanced calculations.
+
+### Pi Function
+
+```ahll
+// Calculate N * π
+pi_(1)    // 3.141592653589793
+pi_(2)    // 6.283185307179586
+pi_(0.5)  // 1.5707963267948966
+```
+
+### Absolute Value
+
+```ahll
+// Get absolute value of a number
+absolute_value_of_(10)    // 10
+absolute_value_of_(-10)   // 10
+absolute_value_of_(-5.5)  // 5.5
+```
+
+### Example: Math Extensions Demo
+
+```ahll
+write_this("=== Math Extensions Demo ===")
+
+write_this("pi_(1) = ")
+pi_(1)
+
+write_this("pi_(2) = ")
+pi_(2)
+
+write_this("absolute_value_of_(-10) = ")
+absolute_value_of_(-10)
+
+write_this("absolute_value_of_(5) = ")
+absolute_value_of_(5)
+```
+
+**Output:**
+```
+=== Math Extensions Demo ===
+pi_(1) = 
+3.141592653589793
+pi_(2) = 
+6.283185307179586
+absolute_value_of_(-10) = 
+10.0
+absolute_value_of_(5) = 
+5.0
+```
+
+---
+
+## Character Generation
+
+Generate repeated character output using `document_header_with_length_`:
+
+```ahll
+// Create a line of 10 asterisks
+document_header_with_length_(10)_and_("*")_as_character
+
+// Create a separator line
+document_header_with_length_(40)_and_("-")_as_character
+
+// Create a header
+document_header_with_length_(20)_and_("=")_as_character
+```
+
+### Example: Character Generation Demo
+
+```ahll
+write_this("=== Character Generation Demo ===")
+
+write_this("Asterisk line:")
+document_header_with_length_(10)_and_("*")_as_character
+
+write_this("Hash line:")
+document_header_with_length_(8)_and_("#")_as_character
+
+write_this("Custom line:")
+document_header_with_length_(15)_and_("=")_as_character
+```
+
+**Output:**
+```
+=== Character Generation Demo ===
+Asterisk line:
+**********
+Hash line:
+########
+Custom line:
+===============
+```
+
+---
+
+## Screen Control
+
+Clear the terminal screen with `shoot_this_thing`:
+
+```ahll
+write_this("Some content...")
+shoot_this_thing
+write_this("Screen cleared!")
+```
 
 ---
 

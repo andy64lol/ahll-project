@@ -4,182 +4,374 @@ import os
 import json
 import subprocess
 import re
+import time
+import math
+from typing import Any, Dict, List, Optional
 
 class AHLLInterpreter:
     def __init__(self):
-        self.variables = {}
-        self.lists = {}
-        self.functions = {}
-        self.answer = None
+        self.variables: Dict[str, Any] = {}
+        self.lists: Dict[str, List[str]] = {}
+        self.functions: Dict[str, List[Dict]] = {}
+        self.answer: Optional[str] = None
+        self.ast: List[Dict] = []
+        
+        # Precompile regex patterns for performance
+        self.var_pattern = re.compile(r'\b\w+\b')
+        self.condition_is_pattern = re.compile(r'<\(([^)]+)\)_is_\(([^)]+)\)>')
+        self.sleep_pattern = re.compile(r'STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_\((\d+)\)_SECONDS')
+        self.document_header_pattern = re.compile(r'document_header_with_length_\(([^)]+)\)_and_\(([^)]+)\)_as_character')
+        self.loop_pattern = re.compile(r'do_this_\((\d+)\)_times:')
+        self.classroom_pattern = re.compile(r'classroom_\("([^"]+)"\)')
+        
+        # Command handler mapping
+        self.command_handlers = {
+            'write_this(': self._handle_write,
+            'ask_this(': self._handle_ask,
+            'create_new_classroom_named_': self._handle_create_classroom,
+            'add_new_student_with_name_of_': self._handle_add_student,
+            'teach_(': self._handle_teach,
+            'nuke_list_(': self._handle_nuke_list,
+            'nuke_notes_(': self._handle_nuke_notes,
+            'file_document_(': self._handle_file_document,
+            'burn_papers_(': self._handle_burn_papers,
+            'use_cheating_(': self._handle_use_cheating,
+            'STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_': self._handle_sleep,
+            'nuke_this_sh*t': self._handle_exit,
+            'pi_(': self._handle_pi,
+            'absolute_value_of_(': self._handle_absolute_value,
+            'document_header_with_length_': self._handle_document_header,
+            'shoot_this_thing': self._handle_clear_screen
+        }
 
-    def parse_expression(self, expr):
-        # Handle expressions in () or []
+    def parse_expression(self, expr: str) -> Any:
+        """Parse expression and substitute variables"""
         expr = expr.strip()
+        
+        # Remove outer parentheses/brackets
         if expr.startswith('(') and expr.endswith(')'):
             expr = expr[1:-1]
         elif expr.startswith('[') and expr.endswith(']'):
             expr = expr[1:-1]
-
-        # Replace variables
-        for var in re.findall(r'\b\w+\b', expr):
-            if var in self.variables:
-                expr = expr.replace(var, repr(self.variables[var]))
-            elif var == 'answer':
-                expr = expr.replace(var, repr(self.answer))
-
-        # Evaluate
+        
+        # Find all words in expression
+        words = set(self.var_pattern.findall(expr))
+        
+        # Sort by length descending to avoid partial matches
+        for word in sorted(words, key=len, reverse=True):
+            if word in self.variables:
+                pattern = r'\b' + re.escape(word) + r'\b'
+                expr = re.sub(pattern, str(self.variables[word]), expr)
+            elif word == 'answer' and self.answer is not None:
+                pattern = r'\b' + re.escape(word) + r'\b'
+                expr = re.sub(pattern, str(self.answer), expr)
+        
+        # Attempt to evaluate expression
         try:
-            return eval(expr)
-        except:
+            # Safe evaluation of mathematical expressions
+            return eval(expr, {"__builtins__": {}}, {
+                'abs': abs, 'round': round, 'min': min, 'max': max,
+                'int': int, 'float': float, 'str': str, 'bool': bool,
+                'len': len, 'sum': sum, 'math': math
+            })
+        except Exception:
+            # Return raw expression if evaluation fails
             return expr
 
-    def parse_condition(self, cond):
-        # Parse conditions like <("var")_is_("value")>
+    def parse_condition(self, cond: str) -> bool:
+        """Parse conditional expressions"""
         cond = cond.strip('<>')
+        
+        # Handle _is_ conditions
         if '_is_' in cond:
-            parts = cond.split('_is_', 1)
-            var_raw = parts[0]
-            val_raw = parts[1] if len(parts) > 1 else ''
-            # Extract variable name by removing parentheses and quotes
-            var = var_raw.strip().strip('(').strip('"').strip("'").strip(')').strip('"')
-            # Extract value by removing parentheses and quotes
-            val = val_raw.strip().strip('(').strip('"').strip("'").strip(')').strip('"')
-            return self.variables.get(var) == val
+            match = self.condition_is_pattern.match('<' + cond + '>')
+            if match:
+                var = match.group(1).strip('"\'')
+                val = match.group(2).strip('"\'')
+                return str(self.variables.get(var)) == val
+        
+        # Handle negation conditions
         elif 'the_following_thing_is_not_true_lol_' in cond:
             sub_cond = cond.replace('the_following_thing_is_not_true_lol_', '')
             return not self.parse_condition('<' + sub_cond + '>')
+        
         return False
 
-    def execute_line(self, line):
-        # Parse commands
-        if line.startswith('write_this('):
-            content = line[11:-1]
-            parsed = self.parse_expression(content)
-            print(parsed)
-        elif line.startswith('ask_this('):
-            prompt = line[9:-1].strip('"')
-            self.answer = input(prompt)
-        elif line.startswith('create_new_classroom_named_('):
-            name = line[29:-1].strip('"')
-            self.lists[name] = []
-        elif line.startswith('add_new_student_with_name_of_('):
-            parts = line.split('_to_')
-            var = parts[0][31:-1].strip('"')
-            if parts[1].startswith('classroom_('):
-                # Extract list name from classroom_("name")
-                list_name_match = re.search(r'classroom_\("([^"]+)"\)', parts[1])
-                if list_name_match:
-                    list_name = list_name_match.group(1)
-                else:
-                    list_name = parts[1][10:-1].strip('"')
-                self.lists[list_name].append(var)
-            elif '_to_happy_children_prison_LOL' in parts[1]:
+    def _handle_write(self, line: str) -> None:
+        """Handle write_this command"""
+        content = line[11:-1]
+        parsed = self.parse_expression(content)
+        print(parsed)
+
+    def _handle_ask(self, line: str) -> None:
+        """Handle ask_this command"""
+        prompt = line[9:-1].strip('"\'')
+        self.answer = input(prompt)
+
+    def _handle_create_classroom(self, line: str) -> None:
+        """Handle create_new_classroom_named_ command"""
+        name = line[29:-1].strip('"\'')
+        self.lists[name] = []
+
+    def _handle_add_student(self, line: str) -> None:
+        """Handle add_new_student_with_name_of_ command"""
+        if '_to_' not in line:
+            return
+            
+        parts = line.split('_to_')
+        if len(parts) < 2:
+            return
+            
+        var_part = parts[0]
+        target_part = parts[1]
+        
+        # Extract variable name
+        var_match = re.search(r'add_new_student_with_name_of_\((.*?)\)', var_part)
+        if not var_match:
+            var_match = re.search(r'add_new_student_with_name_of_(.*)', var_part)
+            
+        if var_match:
+            var = var_match.group(1).strip('"\'')
+            
+            # Add to classroom
+            classroom_match = self.classroom_pattern.match(target_part)
+            if classroom_match:
+                list_name = classroom_match.group(1)
+                if list_name in self.lists:
+                    self.lists[list_name].append(var)
+            
+            # Add to prison
+            elif '_to_happy_children_prison_LOL' in target_part:
+                prison_name = target_part.replace('_to_happy_children_prison_LOL', '').strip('"\'')
+                if prison_name not in self.lists:
+                    self.lists[prison_name] = []
                 self.variables[var] = None
-        elif line.startswith('teach_('):
-            parts = line.split('_a_bit_of_(')
-            var = parts[0][7:-1].strip('"')
-            value_part = parts[1].split(')_from_')[0]
+
+    def _handle_teach(self, line: str) -> None:
+        """Handle teach_ command"""
+        match = re.match(r'teach_\((.*?)\)_a_bit_of_\((.*?)\)_from_(.*)', line)
+        if match:
+            var = match.group(1).strip('"\'')
+            value_part = match.group(2)
+            source = match.group(3)
+            
             value = self.parse_expression(value_part)
-            source = parts[1].split(')_from_')[1]
+            
+            # Assign from classroom
             if source.startswith('classroom('):
-                list_name = source[11:-1].strip('"')
+                list_name = source[10:-1].strip('"\'')
                 if list_name in self.lists and var in self.lists[list_name]:
                     self.variables[var] = value
+            
+            # Assign from prison
             elif source.startswith('happy_children_prison'):
-                if 'happy_children_prison' in self.lists and var in self.lists['happy_children_prison']:
+                prison_name = source[len('happy_children_prison'):].strip('"\'')
+                prison_key = 'happy_children_prison' + prison_name
+                if prison_key in self.lists and var in self.lists[prison_key]:
                     self.variables[var] = value
-        elif line.startswith('nuke_list_('):
-            name = line[11:-1].strip('"')
-            if name in self.lists:
-                del self.lists[name]
-        elif line.startswith('nuke_notes_('):
-            parts = line.split(')_from_classroom_(')
-            var = parts[0][12:-1].strip('"')
-            list_name = parts[1].strip('")')
+
+    def _handle_nuke_list(self, line: str) -> None:
+        """Handle nuke_list_ command"""
+        name = line[11:-1].strip('"\'')
+        if name in self.lists:
+            del self.lists[name]
+
+    def _handle_nuke_notes(self, line: str) -> None:
+        """Handle nuke_notes_ command"""
+        match = re.match(r'nuke_notes_\((.*?)\)_from_classroom_\((.*?)\)', line)
+        if match:
+            var = match.group(1).strip('"\'')
+            list_name = match.group(2).strip('"\'')
             if list_name in self.lists and var in self.lists[list_name]:
                 self.lists[list_name].remove(var)
-        elif line.startswith('file_document_('):
-            parts = line.split('_as_(')
-            file_path = parts[0][15:-1].strip('"')
-            list_name = parts[1].strip('")').split(',')[0].strip('"')
-            with open(file_path, 'w') as f:
-                json.dump(self.lists.get(list_name, []), f)
-        elif line.startswith('burn_papers_('):
-            file_path = line[13:-1].strip('"')
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        elif line.startswith('use_cheating_('):
-            cmd = line[14:-1].strip('"')
-            subprocess.run(cmd, shell=True)
 
-    def parse(self, filename):
+    def _handle_file_document(self, line: str) -> None:
+        """Handle file_document_ command"""
+        match = re.match(r'file_document_\((.*?)\)_as_\((.*?)\)', line)
+        if match:
+            file_path = match.group(1).strip('"\'')
+            list_name = match.group(2).strip('"\'')
+            with open(file_path, 'w') as f:
+                json.dump(self.lists.get(list_name, []), f, indent=2)
+
+    def _handle_burn_papers(self, line: str) -> None:
+        """Handle burn_papers_ command"""
+        file_path = line[13:-1].strip('"\'')
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    def _handle_use_cheating(self, line: str) -> None:
+        """Handle use_cheating_ command"""
+        cmd = line[14:-1].strip('"\'')
+        subprocess.run(cmd, shell=True, check=False)
+
+    def _handle_sleep(self, line: str) -> None:
+        """Handle STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_ command"""
+        match = self.sleep_pattern.search(line)
+        if match:
+            seconds = int(match.group(1))
+            time.sleep(seconds)
+
+    def _handle_exit(self, line: str) -> None:
+        """Handle nuke_this_sh*t command"""
+        sys.exit(0)
+
+    def _handle_pi(self, line: str) -> None:
+        """Handle pi_ command"""
+        content = line[4:-1]
+        parsed = self.parse_expression(content)
+        try:
+            result = math.pi * float(parsed)
+            print(result)
+        except (ValueError, TypeError):
+            print(f"Error: invalid value for pi_({content})")
+
+    def _handle_absolute_value(self, line: str) -> None:
+        """Handle absolute_value_of_ command"""
+        content = line[19:-1]
+        parsed = self.parse_expression(content)
+        try:
+            result = abs(float(parsed))
+            print(result)
+        except (ValueError, TypeError):
+            print(f"Error: invalid value for absolute_value_of_({content})")
+
+    def _handle_document_header(self, line: str) -> None:
+        """Handle document_header_with_length_ command"""
+        match = self.document_header_pattern.search(line)
+        if match:
+            length_str = match.group(1)
+            value_str = match.group(2)
+            try:
+                length = int(self.parse_expression(length_str))
+                value = self.parse_expression(value_str)
+                print(str(value) * length)
+            except (ValueError, TypeError):
+                print("Error: invalid document_header_with_length syntax")
+        else:
+            print("Error: invalid document_header_with_length syntax")
+
+    def _handle_clear_screen(self, line: str) -> None:
+        """Handle shoot_this_thing command"""
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    def execute_line(self, line: str) -> None:
+        """Execute single line command"""
+        line = line.strip()
+        if not line:
+            return
+            
+        # Find matching command handler
+        for prefix, handler in self.command_handlers.items():
+            if line.startswith(prefix):
+                handler(line)
+                return
+        
+        # Unknown command warning
+        print(f"Warning: Unknown command: {line}")
+
+    def parse(self, filename: str) -> None:
+        """Parse AHLL file and build AST"""
         with open(filename, 'r') as f:
             lines = f.readlines()
-        self.ast = self.parse_lines(lines, 0)
+        
+        self.ast = self._parse_lines(lines, 0)
 
-    def parse_lines(self, lines, start_indent):
+    def _parse_lines(self, lines: List[str], start_indent: int) -> List[Dict]:
+        """Recursively parse lines to build AST"""
         statements = []
         i = 0
+        
         while i < len(lines):
             line = lines[i].rstrip()
             if not line.strip():
                 i += 1
                 continue
+                
             indent = len(line) - len(line.lstrip())
-            line = line.lstrip()
+            line_content = line.lstrip()
+            
             if indent < start_indent:
                 break
             elif indent == start_indent:
-                stmt = {'type': 'statement', 'line': line, 'children': []}
+                stmt = {
+                    'type': 'statement',
+                    'line': line_content,
+                    'children': []
+                }
                 statements.append(stmt)
                 i += 1
-                # Check for indented children
+                
+                # Check for indented child statements
                 if i < len(lines):
                     next_indent = len(lines[i]) - len(lines[i].lstrip())
                     if next_indent > start_indent:
-                        children = self.parse_lines(lines[i:], next_indent)
+                        children = self._parse_lines(lines[i:], next_indent)
                         stmt['children'] = children
                         i += len(children)
             else:
-                i += 1  # Skip unexpected
+                i += 1
+                
         return statements
 
-    def execute_ast(self, ast):
+    def execute_ast(self, ast: List[Dict]) -> None:
+        """Execute AST"""
         for stmt in ast:
             self.execute_statement(stmt)
 
-    def execute_statement(self, stmt):
+    def execute_statement(self, stmt: Dict) -> None:
+        """Execute single statement"""
         line = stmt['line']
-        if stmt['children']:
-            # Block statement
+        children = stmt['children']
+        
+        if children:
+            # Block statement handling
             if line.startswith('If_'):
-                cond_part = line[3:].split('_then_do:')[0]
-                cond = self.parse_condition(cond_part)
-                if cond:
-                    self.execute_ast(stmt['children'])
+                parts = line[3:].split('_then_do:', 1)
+                if len(parts) == 2:
+                    cond_part = parts[0]
+                    if self.parse_condition(cond_part):
+                        self.execute_ast(children)
+                        
             elif line.startswith('but if_'):
-                cond_part = line[7:].split('_do:')[0]
-                cond = self.parse_condition(cond_part)
-                if cond:
-                    self.execute_ast(stmt['children'])
+                parts = line[7:].split('_do:', 1)
+                if len(parts) == 2:
+                    cond_part = parts[0]
+                    if self.parse_condition(cond_part):
+                        self.execute_ast(children)
+                        
+            elif line.startswith('do_this_('):
+                match = self.loop_pattern.match(line)
+                if match:
+                    count = int(match.group(1))
+                    for _ in range(count):
+                        self.execute_ast(children)
+                        
             elif line.startswith('create_new_concept_('):
-                name = line[20:-1].strip('"')
-                self.functions[name] = stmt['children']
+                name = line[20:-1].strip('"\'')
+                self.functions[name] = children
+                
             elif line.startswith('define_concept_('):
-                name = line[15:].split(')_here:')[0].strip('"')
-                self.functions[name] = stmt['children']
+                parts = line[15:].split(')_here:', 1)
+                if len(parts) == 2:
+                    name = parts[0].strip('"\'')
+                    self.functions[name] = children
             else:
-                self.execute_ast(stmt['children'])
+                # Other block statements
+                self.execute_ast(children)
         else:
+            # Single line statement
             self.execute_line(line)
 
-    def run(self, filename):
+    def run(self, filename: str) -> None:
+        """Run AHLL program"""
         self.parse(filename)
         self.execute_ast(self.ast)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print("Usage: ahll file.ahll")
+        print("Usage: ahll_interpreter.py <filename.ahll>")
         sys.exit(1)
+    
     interpreter = AHLLInterpreter()
     interpreter.run(sys.argv[1])

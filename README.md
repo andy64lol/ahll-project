@@ -9,9 +9,15 @@ AHLL is a whimsical, fun programming language designed to make coding feel like 
 ## Features
 
 - **Whimsical Syntax**: Commands like `write_this("Hello!")`, `create_new_classroom_named_("my_list")`, and `add_new_student_with_name_of_("x")_to_classroom_("my_list")` make coding playful and memorable.
-- **Core Programming Concepts**: Variables, lists, math operations, input/output, conditionals, functions, and more.
+- **Core Programming Concepts**: Variables, lists, math operations, input/output, conditionals, functions, loops, and more.
+- **Time and Delays**: Add delays to your programs with `STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(N)_SECONDS`.
+- **Loops**: Repeat code blocks with `do_this_(N)_times:`.
+- **Program Control**: Immediately stop program execution with `nuke_this_sh*t`.
 - **File I/O**: Save and load data with `file_document_()` and `burn_papers_()`.
 - **Shell Integration**: Run system commands with `use_cheating_()`.
+- **Math Extensions**: Use `pi_(N)` for π×N and `absolute_value_of_(N)` for |N|.
+- **Character Generation**: Create repeated character output with `document_header_with_length_(N)_and_(char)_as_character`.
+- **Screen Control**: Clear the screen with `shoot_this_thing`.
 - **Easy to Learn**: Simple, English-like syntax that's forgiving and fun.
 - **Cross-Platform**: Runs on any system with Python 3.
 
@@ -82,6 +88,20 @@ add_new_student_with_name_of_("greeting")_to_classroom_("my_vars")
 teach_("greeting")_a_bit_of_("Hello, World!")_from_classroom("my_vars")
 
 write_this([greeting])
+
+// Loops: Repeat code multiple times
+write_this("Counting down:")
+do_this_(3)_times:
+    write_this("  Tick...")
+
+// Time delays: Wait between actions
+STAY_THERE_AND_DONT_DARE_TO_MOVE_FOR_(1)_SECONDS
+write_this("1 second later!")
+
+// Program control: Stop execution
+write_this("About to stop...")
+nuke_this_sh*t
+write_this("This won't print!")
 
 // Ask for input
 ask_this("What's your name? ")
