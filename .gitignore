@@ -4,3 +4,5 @@ zenflow/
 builder
 TODO.md
 *.deb
+debian/
+usr/
