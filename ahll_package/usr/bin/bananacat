@@ -20,7 +20,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
 fi
 
 if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
-    exec ahll --version
+    exec "$(dirname "$0")/ahll" --version
     exit 0
 fi
 
@@ -44,4 +44,4 @@ echo "🍌🐈 Running: $FILE"
 echo ""
 
 # Run the interpreter
-exec ahll "$FILE"
+exec "$(dirname "$0")/ahll" "$FILE"

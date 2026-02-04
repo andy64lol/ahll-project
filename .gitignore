@@ -3,3 +3,4 @@ zencoder/
 zenflow/
 builder
 TODO.md
+*.deb
