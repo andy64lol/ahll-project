@@ -270,10 +270,36 @@ class AHLLInterpreter:
         # Unknown command warning
         print(f"Warning: Unknown command: {line}")
 
+    def strip_comments(self, lines: List[str]) -> List[str]:
+        """Remove comments from lines (strip everything after //)"""
+        result = []
+        for line in lines:
+            # Find the first occurrence of // that's not inside quotes
+            in_string = False
+            comment_start = -1
+            i = 0
+            while i < len(line):
+                char = line[i]
+                if char == '"' and (i == 0 or line[i-1] != '\\'):
+                    in_string = not in_string
+                elif char == '/' and i + 1 < len(line) and line[i+1] == '/' and not in_string:
+                    comment_start = i
+                    break
+                i += 1
+            
+            if comment_start >= 0:
+                line = line[:comment_start]
+            result.append(line)
+        
+        return result
+
     def parse(self, filename: str) -> None:
         """Parse AHLL file and build AST"""
         with open(filename, 'r') as f:
             lines = f.readlines()
+        
+        # Strip comments before building AST
+        lines = self.strip_comments(lines)
         
         self.ast = self._parse_lines(lines, 0)
 
